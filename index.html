@@ -1,0 +1,675 @@
+
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="theme-color" content="#100e19">
+  <title>DramaIA Studio</title>
+
+  <style>
+    :root {
+      --fondo: #100e19;
+      --panel: #1c1929;
+      --borde: #302b40;
+      --texto: #f6f3ff;
+      --suave: #aaa5bd;
+      --rosa: #f44caa;
+      --morado: #9365ff;
+    }
+
+    * { box-sizing: border-box; }
+
+    body {
+      margin: 0;
+      min-height: 100vh;
+      background:
+        radial-gradient(ellipse at top right, #38204d 0, transparent 42%),
+        var(--fondo);
+      color: var(--texto);
+      font-family: system-ui, Arial, sans-serif;
+    }
+
+    button, input, textarea, select {
+      font: inherit;
+    }
+
+    button { cursor: pointer; }
+
+    .app {
+      display: grid;
+      grid-template-columns: 230px minmax(0, 1fr);
+      min-height: 100vh;
+    }
+
+    aside {
+      padding: 25px 16px;
+      background: rgba(17, 15, 26, .94);
+      border-right: 1px solid var(--borde);
+    }
+
+    .logo {
+      font-size: 21px;
+      font-weight: 850;
+      margin-bottom: 35px;
+    }
+
+    .logo span { color: var(--rosa); }
+
+    .sublogo {
+      display: block;
+      margin-top: 5px;
+      font-size: 10px;
+      color: var(--suave);
+      font-weight: 500;
+      letter-spacing: 2px;
+    }
+
+    nav {
+      display: grid;
+      gap: 8px;
+    }
+
+    nav button {
+      background: transparent;
+      border: 1px solid transparent;
+      color: var(--suave);
+      padding: 13px;
+      text-align: left;
+      border-radius: 10px;
+    }
+
+    nav button.active,
+    nav button:hover {
+      background: #30243e;
+      color: white;
+      border-color: #53304f;
+    }
+
+    main {
+      width: 100%;
+      max-width: 1100px;
+      margin: auto;
+      padding: 42px;
+    }
+
+    .eyebrow {
+      color: var(--rosa);
+      font-size: 11px;
+      letter-spacing: 2px;
+      font-weight: 800;
+      text-transform: uppercase;
+    }
+
+    h1 { font-size: clamp(27px, 4vw, 42px); margin: 10px 0; }
+    h2 { font-size: 21px; margin-top: 0; }
+    p { color: var(--suave); line-height: 1.6; }
+
+    .panel {
+      background: rgba(28, 25, 41, .96);
+      border: 1px solid var(--borde);
+      border-radius: 16px;
+      padding: 23px;
+      margin-top: 23px;
+    }
+
+    .hero {
+      padding: 35px;
+      background: linear-gradient(125deg, #2d1d3c, #1b192a 70%);
+    }
+
+    .button {
+      display: inline-block;
+      padding: 12px 17px;
+      border-radius: 10px;
+      border: 1px solid var(--borde);
+      background: #282439;
+      color: white;
+      font-weight: 700;
+    }
+
+    .primary {
+      background: linear-gradient(100deg, var(--rosa), var(--morado));
+      border: none;
+      color: white;
+    }
+
+    .button-row {
+      display: flex;
+      gap: 10px;
+      flex-wrap: wrap;
+      margin-top: 20px;
+    }
+
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      gap: 16px;
+      margin-top: 18px;
+    }
+
+    .series-card {
+      border: 1px solid var(--borde);
+      border-radius: 14px;
+      background: var(--panel);
+      overflow: hidden;
+    }
+
+    .cover {
+      min-height: 100px;
+      padding: 22px;
+      display: flex;
+      align-items: center;
+      font-size: 36px;
+      background: linear-gradient(135deg, #63356c, #292e63);
+    }
+
+    .series-content { padding: 17px; }
+    .series-content h3 { margin-top: 0; }
+    .series-content p { font-size: 13px; }
+
+    label {
+      display: block;
+      margin: 16px 0 7px;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    input, textarea, select {
+      display: block;
+      width: 100%;
+      color: white;
+      background: #100e19;
+      border: 1px solid #39334d;
+      border-radius: 9px;
+      padding: 12px;
+      outline: none;
+    }
+
+    input:focus, textarea:focus, select:focus {
+      border-color: var(--rosa);
+    }
+
+    textarea { min-height: 110px; resize: vertical; }
+
+    .form-grid {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 0 16px;
+    }
+
+    .status {
+      background: #12101b;
+      border-radius: 9px;
+      padding: 12px;
+      font-size: 13px;
+      color: #a7e4c5;
+      margin-top: 15px;
+      overflow-wrap: anywhere;
+    }
+
+    .hidden { display: none !important; }
+
+    .empty {
+      padding: 30px;
+      text-align: center;
+      border: 1px dashed #49415d;
+      border-radius: 12px;
+      color: var(--suave);
+    }
+
+    .small {
+      font-size: 12px;
+      color: var(--suave);
+    }
+
+    footer {
+      margin-top: 30px;
+      text-align: center;
+      color: #716b84;
+      font-size: 11px;
+    }
+
+    @media (max-width: 700px) {
+      .app { grid-template-columns: 1fr; }
+
+      aside {
+        padding: 14px;
+        border-right: 0;
+        border-bottom: 1px solid var(--borde);
+      }
+
+      .logo { margin: 0 0 12px; font-size: 19px; }
+
+      nav {
+        display: flex;
+        overflow-x: auto;
+        gap: 6px;
+      }
+
+      nav button {
+        white-space: nowrap;
+        padding: 10px 12px;
+      }
+
+      main { padding: 23px 15px; }
+      .hero { padding: 23px; }
+      .panel { padding: 17px; }
+      .form-grid { grid-template-columns: 1fr; }
+    }
+  </style>
+</head>
+
+<body>
+<div class="app">
+  <aside>
+    <div class="logo">
+      DramaIA <span>Studio</span>
+      <span class="sublogo">CREA · CUENTA · NARRA</span>
+    </div>
+
+    <nav aria-label="Navegación principal">
+      <button class="active" data-page="inicio">⌂ Inicio</button>
+      <button data-page="series">▣ Mis series</button>
+      <button data-page="crear">＋ Nueva serie</button>
+      <button data-page="ajustes">⚙ Preferencias</button>
+    </nav>
+  </aside>
+
+  <main>
+    <section id="inicio" class="page">
+      <div class="eyebrow">Tu estudio creativo</div>
+      <h1>Las historias que imaginas merecen cobrar vida.</h1>
+      <p>Crea y organiza tus minidramas, desde la primera idea hasta la producción audiovisual.</p>
+
+      <div class="panel hero">
+        <div class="eyebrow">DramaIA Studio · Fase inicial</div>
+        <h2>Tu próxima historia comienza aquí.</h2>
+        <p>Organiza tus proyectos y prepara el camino para desarrollar personajes, guiones, escenas y storyboards.</p>
+        <div class="button-row">
+          <button class="button primary" data-go="crear">＋ Crear una serie</button>
+          <button class="button" data-go="series">Ver mis series</button>
+        </div>
+      </div>
+
+      <div class="grid">
+        <div class="panel">
+          <div class="eyebrow">01 · Historias</div>
+          <h2 id="totalSeries">0</h2>
+          <p>Series guardadas en este dispositivo.</p>
+        </div>
+        <div class="panel">
+          <div class="eyebrow">02 · Producción</div>
+          <h2>Por preparar</h2>
+          <p>Guiones, personajes y escenas serán las siguientes etapas.</p>
+        </div>
+      </div>
+
+      <div class="panel">
+        <h2>Principio del proyecto</h2>
+        <p>Primero construiremos una base estable. Después añadiremos las funciones por fases y probaremos cada una antes de continuar.</p>
+      </div>
+    </section>
+
+    <section id="series" class="page hidden">
+      <div class="eyebrow">Tu biblioteca</div>
+      <h1>Mis series</h1>
+      <p>Todas tus ideas organizadas en un solo lugar.</p>
+      <div class="button-row">
+        <button class="button primary" data-go="crear">＋ Nueva serie</button>
+        <button class="button" id="exportar">Exportar respaldo</button>
+        <button class="button" id="importar">Importar respaldo</button>
+        <input type="file" id="archivoImportar" accept=".json,application/json" class="hidden">
+      </div>
+      <div id="listaSeries" class="grid"></div>
+    </section>
+
+    <section id="crear" class="page hidden">
+      <div class="eyebrow" id="modoFormulario">Nuevo proyecto</div>
+      <h1 id="tituloFormulario">Crea tu serie.</h1>
+      <p>Comencemos por la idea principal. Podrás desarrollar la historia más adelante.</p>
+
+      <form id="formSerie" class="panel">
+        <label for="titulo">Título de la serie *</label>
+        <input id="titulo" maxlength="100" required placeholder="Ej. La heredera del reino prohibido">
+
+        <label for="sinopsis">Sinopsis o idea principal</label>
+        <textarea id="sinopsis" maxlength="3000" placeholder="¿Quién protagoniza la historia? ¿Qué conflicto debe enfrentar?"></textarea>
+
+        <div class="form-grid">
+          <div>
+            <label for="estilo">Estilo visual</label>
+            <select id="estilo">
+              <option>Cinematográfico realista</option>
+              <option>Anime</option>
+              <option>Animación 3D</option>
+              <option>Ilustración fantástica</option>
+              <option>Novela visual</option>
+            </select>
+          </div>
+          <div>
+            <label for="episodios">Episodios previstos</label>
+            <select id="episodios">
+              <option value="3">3 episodios</option>
+              <option value="5" selected>5 episodios</option>
+              <option value="10">10 episodios</option>
+              <option value="15">15 episodios</option>
+              <option value="20">20 episodios</option>
+            </select>
+          </div>
+        </div>
+
+        <label for="genero">Género principal</label>
+        <select id="genero">
+          <option>Drama</option>
+          <option>Romance</option>
+          <option>Misterio</option>
+          <option>Fantasía</option>
+          <option>Suspenso</option>
+          <option>Acción</option>
+          <option>Comedia</option>
+          <option>Drama y romance</option>
+        </select>
+
+        <div class="button-row">
+          <button class="button primary" type="submit" id="guardarSerie">Guardar serie</button>
+          <button class="button" type="button" id="cancelar">Cancelar</button>
+        </div>
+        <div id="mensajeFormulario" class="status hidden" role="status"></div>
+      </form>
+    </section>
+
+    <section id="detalle" class="page hidden">
+      <div class="eyebrow">Ficha del proyecto</div>
+      <h1 id="detalleTitulo">Tu historia</h1>
+      <div class="panel">
+        <p id="detalleSinopsis"></p>
+        <p id="detalleInfo"></p>
+        <div class="status">Siguiente etapa: personajes, continuidad y guion. Aún no se ha generado contenido audiovisual.</div>
+        <div class="button-row">
+          <button class="button primary" id="editarSerie">Editar datos</button>
+          <button class="button" id="volverSeries">Volver a mis series</button>
+          <button class="button" id="eliminarSerie">Eliminar serie</button>
+        </div>
+      </div>
+    </section>
+
+    <section id="ajustes" class="page hidden">
+      <div class="eyebrow">Configuración</div>
+      <h1>Preferencias</h1>
+      <div class="panel">
+        <h2>Tu espacio creativo</h2>
+        <p>Esta primera versión guarda las series localmente en el navegador de este dispositivo.</p>
+        <p>No hay sincronización en la nube ni servicios de generación conectados.</p>
+        <p><strong>Presupuesto de esta fase: 0 COP.</strong></p>
+        <div class="status">Tus proyectos no están compartidos con otros dispositivos. Exporta un respaldo para conservar una copia.</div>
+      </div>
+    </section>
+
+    <footer>DramaIA Studio · Construcción desde cero · Fase 1 de desarrollo funcional</footer>
+  </main>
+</div>
+
+<script>
+(() => {
+  "use strict";
+
+  const STORAGE_KEY = "dramaia_desde_cero_series_v1";
+  const $ = id => document.getElementById(id);
+
+  let series = [];
+  let editId = null;
+  let currentId = null;
+
+  try {
+    const saved = localStorage.getItem(STORAGE_KEY);
+    const parsed = saved ? JSON.parse(saved) : [];
+    series = Array.isArray(parsed) ? parsed : [];
+  } catch (error) {
+    series = [];
+  }
+
+  function persist() {
+    try {
+      localStorage.setItem(STORAGE_KEY, JSON.stringify(series));
+      return true;
+    } catch (error) {
+      alert("No se pudieron guardar los datos. Exporta una copia y comprueba el espacio disponible del navegador.");
+      return false;
+    }
+  }
+
+  function escapeHTML(value) {
+    return String(value ?? "").replace(/[&<>"']/g, char => ({
+      "&": "&amp;",
+      "<": "&lt;",
+      ">": "&gt;",
+      '"': "&quot;",
+      "'": "&#039;"
+    })[char]);
+  }
+
+  function showPage(pageId) {
+    document.querySelectorAll(".page").forEach(page => {
+      page.classList.toggle("hidden", page.id !== pageId);
+    });
+
+    document.querySelectorAll("nav [data-page]").forEach(button => {
+      button.classList.toggle("active", button.dataset.page === pageId);
+    });
+
+    window.scrollTo({ top: 0, behavior: "smooth" });
+
+    if (pageId === "series") renderSeries();
+    if (pageId === "inicio") updateCount();
+  }
+
+  function updateCount() {
+    $("totalSeries").textContent = series.length;
+  }
+
+  function renderSeries() {
+    const list = $("listaSeries");
+    updateCount();
+
+    if (!series.length) {
+      list.innerHTML = '<div class="empty">Todavía no tienes series.<br><br>Crea tu primer proyecto para comenzar.</div>';
+      return;
+    }
+
+    list.innerHTML = series.map(item => `
+      <article class="series-card">
+        <div class="cover">🎬</div>
+        <div class="series-content">
+          <h3>${escapeHTML(item.titulo)}</h3>
+          <p>${escapeHTML(item.sinopsis || "Sinopsis pendiente.")}</p>
+          <p>${escapeHTML(item.genero)} · ${escapeHTML(item.episodios)} episodios</p>
+          <button class="button primary" data-open="${escapeHTML(item.id)}">Abrir proyecto →</button>
+        </div>
+      </article>
+    `).join("");
+  }
+
+  function openDetail(id) {
+    const item = series.find(s => s.id === id);
+    if (!item) return;
+
+    currentId = id;
+    $("detalleTitulo").textContent = item.titulo;
+    $("detalleSinopsis").textContent = item.sinopsis || "Todavía no has escrito una sinopsis.";
+    $("detalleInfo").textContent =
+      `${item.estilo} · ${item.genero} · ${item.episodios} episodios previstos`;
+
+    showPage("detalle");
+  }
+
+  function resetForm() {
+    editId = null;
+    $("formSerie").reset();
+    $("modoFormulario").textContent = "Nuevo proyecto";
+    $("tituloFormulario").textContent = "Crea tu serie.";
+    $("guardarSerie").textContent = "Guardar serie";
+    $("mensajeFormulario").classList.add("hidden");
+  }
+
+  function editCurrent() {
+    const item = series.find(s => s.id === currentId);
+    if (!item) return;
+
+    editId = item.id;
+    $("titulo").value = item.titulo;
+    $("sinopsis").value = item.sinopsis || "";
+    $("estilo").value = item.estilo;
+    $("episodios").value = String(item.episodios);
+    $("genero").value = item.genero;
+    $("modoFormulario").textContent = "Editar proyecto";
+    $("tituloFormulario").textContent = "Actualiza tu serie.";
+    $("guardarSerie").textContent = "Guardar cambios";
+    $("mensajeFormulario").classList.add("hidden");
+    showPage("crear");
+  }
+
+  document.querySelectorAll("[data-page]").forEach(button => {
+    button.addEventListener("click", () => {
+      if (button.dataset.page === "crear") resetForm();
+      showPage(button.dataset.page);
+    });
+  });
+
+  document.querySelectorAll("[data-go]").forEach(button => {
+    button.addEventListener("click", () => {
+      if (button.dataset.go === "crear") resetForm();
+      showPage(button.dataset.go);
+    });
+  });
+
+  $("formSerie").addEventListener("submit", event => {
+    event.preventDefault();
+
+    const titulo = $("titulo").value.trim();
+    if (!titulo) {
+      $("titulo").focus();
+      return;
+    }
+
+    const previous = editId ? series.find(s => s.id === editId) : null;
+
+    const item = {
+      id: editId || (crypto.randomUUID ? crypto.randomUUID() : String(Date.now())),
+      titulo,
+      sinopsis: $("sinopsis").value.trim(),
+      estilo: $("estilo").value,
+      episodios: Number($("episodios").value),
+      genero: $("genero").value,
+      creado: previous ? previous.creado : new Date().toISOString(),
+      actualizado: new Date().toISOString()
+    };
+
+    const oldSeries = [...series];
+
+    if (editId) {
+      series = series.map(s => s.id === editId ? item : s);
+    } else {
+      series.unshift(item);
+    }
+
+    if (!persist()) {
+      series = oldSeries;
+      return;
+    }
+
+    currentId = item.id;
+    resetForm();
+    renderSeries();
+    openDetail(item.id);
+  });
+
+  $("cancelar").addEventListener("click", () => {
+    resetForm();
+    showPage("series");
+  });
+
+  $("editarSerie").addEventListener("click", editCurrent);
+
+  $("volverSeries").addEventListener("click", () => showPage("series"));
+
+  $("eliminarSerie").addEventListener("click", () => {
+    const item = series.find(s => s.id === currentId);
+    if (!item) return;
+
+    if (!confirm(`¿Seguro que quieres eliminar "${item.titulo}"? Esta acción no se puede deshacer.`)) return;
+
+    const oldSeries = [...series];
+    series = series.filter(s => s.id !== currentId);
+
+    if (!persist()) {
+      series = oldSeries;
+      return;
+    }
+
+    currentId = null;
+    renderSeries();
+    showPage("series");
+  });
+
+  $("listaSeries").addEventListener("click", event => {
+    const button = event.target.closest("[data-open]");
+    if (button) openDetail(button.dataset.open);
+  });
+
+  $("exportar").addEventListener("click", () => {
+    const blob = new Blob(
+      [JSON.stringify({ app: "DramaIA Studio", version: 1, series }, null, 2)],
+      { type: "application/json" }
+    );
+
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.download = "dramaia-respaldo.json";
+    link.click();
+    URL.revokeObjectURL(url);
+  });
+
+  $("importar").addEventListener("click", () => $("archivoImportar").click());
+
+  $("archivoImportar").addEventListener("change", async event => {
+    const file = event.target.files[0];
+    if (!file) return;
+
+    try {
+      const data = JSON.parse(await file.text());
+      const incoming = Array.isArray(data) ? data : data.series;
+
+      if (!Array.isArray(incoming) ||
+          !incoming.every(s => s && typeof s.titulo === "string")) {
+        throw new Error("Formato no válido");
+      }
+
+      if (!confirm("La importación reemplazará la biblioteca actual. ¿Quieres continuar?")) return;
+
+      const previous = [...series];
+      series = incoming;
+
+      if (!persist()) {
+        series = previous;
+        return;
+      }
+
+      renderSeries();
+      showPage("series");
+      alert("Respaldo importado correctamente.");
+    } catch (error) {
+      alert("No se pudo importar. Comprueba que seleccionaste un respaldo de DramaIA Studio válido.");
+    } finally {
+      event.target.value = "";
+    }
+  });
+
+  renderSeries();
+  updateCount();
+})();
+</script>
+</body>
+      </html>
+          
