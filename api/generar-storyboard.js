@@ -3,6 +3,7 @@ export default async function handler(req, res) {
   if (req.method !== "POST") {
     res.setHeader("Allow", "POST");
     return res.status(405).json({
+      success: false,
       error: "Método no permitido. Usa POST."
     });
   }
@@ -11,6 +12,7 @@ export default async function handler(req, res) {
 
   if (!apiKey) {
     return res.status(500).json({
+      success: false,
       error: "Falta configurar GEMINI_API_KEY en Vercel."
     });
   }
@@ -23,6 +25,13 @@ export default async function handler(req, res) {
       typeof body.description === "string" ? body.description :
       "";
 
+    if (!prompt.trim()) {
+      return res.status(400).json({
+        success: false,
+        error: "Primero pega el guion del episodio."
+      });
+    }
+
     const episode = body.episode || {};
     const characters = body.characters || [];
     const existingShots = body.shots || [];
@@ -31,12 +40,14 @@ export default async function handler(req, res) {
 Eres un director profesional de minidramas
 verticales para redes sociales.
 
-Tu tarea es crear un storyboard cinematográfico
-a partir de la información recibida.
+Crea un storyboard cinematográfico basado
+en el guion proporcionado.
 
-Devuelve SOLAMENTE un JSON válido con esta estructura:
+Devuelve únicamente un objeto JSON válido,
+sin Markdown ni bloques de código, con esta forma:
+
 {
-  "title": "Título de la escena",
+  "title": "Título del episodio o escena",
   "shots": [
     {
       "number": 1,
@@ -45,40 +56,40 @@ Devuelve SOLAMENTE un JSON válido con esta estructura:
       "camera": "Tipo de plano y movimiento",
       "dialogue": "Diálogo o narración",
       "duration": 5,
-      "visualPrompt": "Descripción visual detallada
-para generar una imagen de esta toma"
+      "visualPrompt": "Descripción visual detallada"
     }
   ]
 }
 
-Crea entre 4 y 8 tomas consecutivas.
-Mantén coherencia entre personajes, vestuario,
-lugares, emociones y continuidad narrativa.
-Las duraciones deben estar expresadas en segundos.
-No inventes personajes ajenos a la historia
-salvo que sean necesarios.
-No incluyas Markdown ni bloques de código.
+Genera entre 4 y 8 planos consecutivos.
+Cada plano debe corresponder al guion.
+Mantén coherencia en personajes, vestuario,
+lugares, iluminación y continuidad narrativa.
+La duración debe ser un número de segundos.
+Incluye diálogos relevantes cuando existan.
+No inventes personajes innecesarios.
+Asegúrate de que "shots" sea una lista
+con al menos 4 elementos.
 `;
 
     const input = `
-INSTRUCCIONES:
 ${instructions}
 
-DESCRIPCIÓN O IDEA:
-${prompt || "Crear un storyboard para el episodio indicado."}
+GUION DEL EPISODIO:
+${prompt}
 
-EPISODIO:
+DATOS DEL EPISODIO:
 ${JSON.stringify(episode)}
 
 PERSONAJES:
 ${JSON.stringify(characters)}
 
-TOMAS EXISTENTES:
+PLANOS EXISTENTES (solo como referencia):
 ${JSON.stringify(existingShots)}
 `;
 
     const response = await fetch(
-        "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent",
+      "https://generativelanguage.googleapis.com/v1beta/models/gemini-3.8-flash:generateContent",
       {
         method: "POST",
         headers: {
@@ -94,7 +105,8 @@ ${JSON.stringify(existingShots)}
           ],
           generationConfig: {
             responseMimeType: "application/json",
-            temperature: 0.7
+            temperature: 0.5,
+            maxOutputTokens: 8192
           }
         })
       }
@@ -103,11 +115,18 @@ ${JSON.stringify(existingShots)}
     const result = await response.json();
 
     if (!response.ok) {
-      console.error("Error de Gemini:", response.status, result);
+      console.error("Error de Gemini:", {
+        status: response.status,
+        message: result.error?.message || "Error desconocido",
+        statusText: result.error?.status || ""
+      });
 
       return res.status(502).json({
+        success: false,
         error: "Gemini no pudo generar el storyboard.",
-        details: result.error?.message || "Error del proveedor de IA."
+        details:
+          result.error?.message ||
+          `El proveedor respondió con estado ${response.status}.`
       });
     }
 
@@ -118,39 +137,114 @@ ${JSON.stringify(existingShots)}
         .trim();
 
     if (!generatedText) {
+      console.error(
+        "Gemini devolvió contenido vacío o bloqueado:",
+        JSON.stringify({
+          finishReason: result.candidates?.[0]?.finishReason,
+          promptFeedback: result.promptFeedback
+        })
+      );
+
       return res.status(502).json({
-        error: "Gemini devolvió una respuesta vacía."
+        success: false,
+        error: "Gemini no devolvió texto utilizable.",
+        details:
+          result.candidates?.[0]?.finishReason ||
+          result.promptFeedback?.blockReason ||
+          "La respuesta llegó vacía."
       });
     }
 
-    let storyboard;
+    let data;
 
     try {
-      storyboard = JSON.parse(generatedText);
-    } catch {
-      console.error("Respuesta no válida de Gemini:", generatedText);
+      const cleanedText = generatedText
+        .replace(/^```(?:json)?\s*/i, "")
+        .replace(/\s*```$/, "")
+        .trim();
+
+      data = JSON.parse(cleanedText);
+    } catch (error) {
+      console.error(
+        "Gemini devolvió JSON no válido:",
+        generatedText.slice(0, 1500)
+      );
 
       return res.status(502).json({
-        error: "La respuesta de Gemini no contiene JSON válido."
+        success: false,
+        error: "Gemini devolvió una respuesta que no es JSON válido.",
+        details: error.message
       });
     }
 
-    if (!Array.isArray(storyboard.shots)) {
+    // Admite distintas formas de organizar la respuesta.
+    const storyboard =
+      data.storyboard && typeof data.storyboard === "object"
+        ? data.storyboard
+        : data;
+
+    const shots =
+      storyboard.shots ||
+      storyboard.planes ||
+      storyboard.planos ||
+      data.shots ||
+      data.planes ||
+      data.planos;
+
+    if (!Array.isArray(shots) || shots.length === 0) {
+      console.error(
+        "La respuesta JSON no contiene planos:",
+        JSON.stringify(data).slice(0, 2000)
+      );
+
       return res.status(502).json({
-        error: "La respuesta no contiene la lista de tomas esperada."
+        success: false,
+        error: "La respuesta de Gemini no contiene planos.",
+        details: "No se encontró una lista de planos válida."
       });
     }
 
+    const normalizedShots = shots.map((shot, index) => ({
+      number: Number(shot.number) || index + 1,
+      title: shot.title || `Plano ${index + 1}`,
+      description:
+        shot.description ||
+        shot.visualPrompt ||
+        shot.visual ||
+        "Plano basado en el guion.",
+      camera: shot.camera || shot.cameraMovement || "Plano medio",
+      dialogue: shot.dialogue || shot.audio || "",
+      duration: Number(shot.duration) || 5,
+      visualPrompt:
+        shot.visualPrompt ||
+        shot.description ||
+        shot.visual ||
+        ""
+    }));
+
+    const finalStoryboard = {
+      title: storyboard.title || "Storyboard del episodio",
+      shots: normalizedShots
+    };
+
+    // Se devuelven ambas formas para facilitar
+    // la compatibilidad con distintas versiones del frontend.
     return res.status(200).json({
       success: true,
-      storyboard
+      storyboard: finalStoryboard,
+      shots: normalizedShots
     });
 
   } catch (error) {
-    console.error("Error interno del storyboard:", error);
+    console.error("Error interno del storyboard:", {
+      message: error.message,
+      name: error.name
+    });
 
     return res.status(500).json({
-      error: "Ocurrió un error interno al generar el storyboard."
+      success: false,
+      error: "Ocurrió un error interno al generar el storyboard.",
+      details: error.message
     });
   }
-      }
+}
