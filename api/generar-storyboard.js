@@ -3,7 +3,6 @@ export default async function handler(req, res) {
   if (req.method !== "POST") {
     res.setHeader("Allow", "POST");
     return res.status(405).json({
-      success: false,
       error: "Método no permitido. Usa POST."
     });
   }
@@ -12,80 +11,55 @@ export default async function handler(req, res) {
 
   if (!apiKey) {
     return res.status(500).json({
-      success: false,
       error: "Falta configurar GEMINI_API_KEY en Vercel."
     });
   }
 
   try {
     const body = req.body || {};
+    const guion = String(body.guion || body.prompt || "").trim();
+    const titulo = String(body.titulo || "Minidrama");
+    const episodio = body.episodio || 1;
+    const enfoque = String(body.enfoque || "Cinematográfico");
 
-    const prompt =
-      typeof body.prompt === "string" ? body.prompt :
-      typeof body.description === "string" ? body.description :
-      "";
-
-    if (!prompt.trim()) {
+    if (!guion) {
       return res.status(400).json({
-        success: false,
         error: "Primero pega el guion del episodio."
       });
     }
 
-    const episode = body.episode || {};
-    const characters = body.characters || [];
-    const existingShots = body.shots || [];
-
-    const instructions = `
-Eres un director profesional de minidramas
+    const prompt = `
+Eres director de cine y especialista en minidramas
 verticales para redes sociales.
 
-Crea un storyboard cinematográfico basado
-en el guion proporcionado.
+Serie: ${titulo}
+Episodio: ${episodio}
+Enfoque visual: ${enfoque}
 
-Devuelve únicamente un objeto JSON válido,
-sin Markdown ni bloques de código, con esta forma:
+GUION DEL EPISODIO:
+${guion}
 
+Crea entre 4 y 8 planos consecutivos basados en el guion.
+Respeta los personajes, sus nombres, el vestuario,
+los lugares y la continuidad de la historia.
+No inventes escenas que contradigan el guion.
+
+Devuelve exclusivamente JSON válido con esta estructura:
 {
-  "title": "Título del episodio o escena",
-  "shots": [
+  "planos": [
     {
-      "number": 1,
-      "title": "Nombre del plano",
-      "description": "Qué sucede visualmente",
-      "camera": "Tipo de plano y movimiento",
-      "dialogue": "Diálogo o narración",
-      "duration": 5,
-      "visualPrompt": "Descripción visual detallada"
+      "tipo": "Nombre del plano",
+      "duracion": 5,
+      "visual": "Descripción visual concreta de la escena",
+      "camera": "Encuadre y movimiento de cámara",
+      "sonido": "Diálogo, música y sonidos ambientales"
     }
   ]
 }
 
-Genera entre 4 y 8 planos consecutivos.
-Cada plano debe corresponder al guion.
-Mantén coherencia en personajes, vestuario,
-lugares, iluminación y continuidad narrativa.
 La duración debe ser un número de segundos.
-Incluye diálogos relevantes cuando existan.
-No inventes personajes innecesarios.
-Asegúrate de que "shots" sea una lista
-con al menos 4 elementos.
-`;
-
-    const input = `
-${instructions}
-
-GUION DEL EPISODIO:
-${prompt}
-
-DATOS DEL EPISODIO:
-${JSON.stringify(episode)}
-
-PERSONAJES:
-${JSON.stringify(characters)}
-
-PLANOS EXISTENTES (solo como referencia):
-${JSON.stringify(existingShots)}
+Todos los campos deben contener texto útil en español.
+No incluyas Markdown ni bloques de código.
 `;
 
     const response = await fetch(
@@ -100,13 +74,12 @@ ${JSON.stringify(existingShots)}
           contents: [
             {
               role: "user",
-              parts: [{ text: input }]
+              parts: [{ text: prompt }]
             }
           ],
           generationConfig: {
             responseMimeType: "application/json",
-            temperature: 0.5,
-            maxOutputTokens: 8192
+            temperature: 0.7
           }
         })
       }
@@ -115,136 +88,69 @@ ${JSON.stringify(existingShots)}
     const result = await response.json();
 
     if (!response.ok) {
-      console.error("Error de Gemini:", {
-        status: response.status,
-        message: result.error?.message || "Error desconocido",
-        statusText: result.error?.status || ""
-      });
-
-      return res.status(502).json({
-        success: false,
-        error: "Gemini no pudo generar el storyboard.",
-        details:
-          result.error?.message ||
-          `El proveedor respondió con estado ${response.status}.`
-      });
-    }
-
-    const generatedText =
-      result.candidates?.[0]?.content?.parts
-        ?.map(part => part.text || "")
-        .join("")
-        .trim();
-
-    if (!generatedText) {
       console.error(
-        "Gemini devolvió contenido vacío o bloqueado:",
-        JSON.stringify({
-          finishReason: result.candidates?.[0]?.finishReason,
-          promptFeedback: result.promptFeedback
-        })
+        "Error de Gemini:",
+        response.status,
+        result
       );
 
       return res.status(502).json({
-        success: false,
-        error: "Gemini no devolvió texto utilizable.",
-        details:
-          result.candidates?.[0]?.finishReason ||
-          result.promptFeedback?.blockReason ||
-          "La respuesta llegó vacía."
+        error: "Gemini no pudo generar el storyboard.",
+        details: result.error?.message || "Error del proveedor de IA."
       });
     }
 
-    let data;
+    const texto = (result.candidates?.[0]?.content?.parts || [])
+      .map(part => part.text || "")
+      .join("")
+      .trim();
+
+    if (!texto) {
+      return res.status(502).json({
+        error: "Gemini devolvió una respuesta vacía."
+      });
+    }
+
+    let datos;
 
     try {
-      const cleanedText = generatedText
-        .replace(/^```(?:json)?\s*/i, "")
-        .replace(/\s*```$/, "")
-        .trim();
-
-      data = JSON.parse(cleanedText);
-    } catch (error) {
-      console.error(
-        "Gemini devolvió JSON no válido:",
-        generatedText.slice(0, 1500)
-      );
+      datos = JSON.parse(texto);
+    } catch {
+      console.error("JSON inválido de Gemini:", texto);
 
       return res.status(502).json({
-        success: false,
-        error: "Gemini devolvió una respuesta que no es JSON válido.",
-        details: error.message
+        error: "Gemini devolvió un JSON inválido."
       });
     }
 
-    // Admite distintas formas de organizar la respuesta.
-    const storyboard =
-      data.storyboard && typeof data.storyboard === "object"
-        ? data.storyboard
-        : data;
-
-    const shots =
-      storyboard.shots ||
-      storyboard.planes ||
-      storyboard.planos ||
-      data.shots ||
-      data.planes ||
-      data.planos;
-
-    if (!Array.isArray(shots) || shots.length === 0) {
-      console.error(
-        "La respuesta JSON no contiene planos:",
-        JSON.stringify(data).slice(0, 2000)
-      );
-
+    if (!Array.isArray(datos.planos) || datos.planos.length === 0) {
       return res.status(502).json({
-        success: false,
-        error: "La respuesta de Gemini no contiene planos.",
-        details: "No se encontró una lista de planos válida."
+        error: "Gemini no devolvió la lista de planos esperada."
       });
     }
 
-    const normalizedShots = shots.map((shot, index) => ({
-      number: Number(shot.number) || index + 1,
-      title: shot.title || `Plano ${index + 1}`,
-      description:
-        shot.description ||
-        shot.visualPrompt ||
-        shot.visual ||
-        "Plano basado en el guion.",
-      camera: shot.camera || shot.cameraMovement || "Plano medio",
-      dialogue: shot.dialogue || shot.audio || "",
-      duration: Number(shot.duration) || 5,
-      visualPrompt:
-        shot.visualPrompt ||
-        shot.description ||
-        shot.visual ||
-        ""
+    const planos = datos.planos.map((p, i) => ({
+      id: `gemini-${Date.now()}-${i}`,
+      tipo: String(p.tipo || `Plano ${i + 1}`),
+      duracion: Math.max(
+        1,
+        Math.min(120, Number(p.duracion) || 5)
+      ),
+      visual: String(p.visual || ""),
+      camera: String(p.camera || ""),
+      sonido: String(p.sonido || "")
     }));
 
-    const finalStoryboard = {
-      title: storyboard.title || "Storyboard del episodio",
-      shots: normalizedShots
-    };
-
-    // Se devuelven ambas formas para facilitar
-    // la compatibilidad con distintas versiones del frontend.
     return res.status(200).json({
       success: true,
-      storyboard: finalStoryboard,
-      shots: normalizedShots
+      planos
     });
 
   } catch (error) {
-    console.error("Error interno del storyboard:", {
-      message: error.message,
-      name: error.name
-    });
+    console.error("Error interno del storyboard:", error);
 
     return res.status(500).json({
-      success: false,
-      error: "Ocurrió un error interno al generar el storyboard.",
-      details: error.message
+      error: "Ocurrió un error interno al generar el storyboard."
     });
   }
 }
